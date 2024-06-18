@@ -26,27 +26,37 @@ void f1(char *input, char *key, char **output,AES_Mode mode, int len){
 }
 
 int main(){
-    char *input = "abcdef0123456789abcdef0123456789";
+    char *input = "This is a secret message.";
     char *cypher = NULL;
     char *text = NULL;
     char key[17];
     int len;
     generateRandomKey(key, KeySize);
     
-    len = encryptAes(input,key,&cypher,CBC);
-    phexstrsize(cypher,64);
-    decryptAes(cypher,key,&text,CBC,len);
+    len = encryptAes(input,key,&cypher,CFB);
+    printf("len of cypher : %d\n",len);
+    //printf("len for phexsize : %d\n",len + (16 - (len % 16)));
+    //phexstrsize(cypher,len + (16 - (len % 16)));
+    phexstrsize(cypher,len);
+    decryptAes(cypher,key,&text,CFB,len);
     pstring(text);
     freebuffs(&cypher,&text);
+    // uint32_t arr[4] = {0};
+    // arr[0] = 7;
+    // arr[1] = 324453333;
+    // arr[2] = 7;
+    // arr[3] = 7;
+    // for (size_t i = 0; i < 4; i++)
+    // {
+    //     bin(arr[i]);
+    // }
+    // ivCfbInc(arr,'a');
+    // printf("\n");
+    // for (size_t i = 0; i < 4; i++)
+    // {
+    //     bin(arr[i]);
+    // }
     
-
-    // uint32_t x = 127;
-    // uint32_t *ptr = &x;
-    // bin(x);
-    // swapBits(ptr, 5,28);
-    // bin(x);
-    // printf("counter is for x: %d\n", countBits(x));
-    // printf("size of int: %ld\n", sizeof(uint32_t));
     return 0;
 }
 

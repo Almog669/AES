@@ -107,16 +107,13 @@ void generateRandomKey(char* str, int length) {
     srand((unsigned int)time(NULL));
 
     size_t charset_size = sizeof(charset) - 1;
-    //printf("Charset size: %zu\n", charset_size);
 
     // Generate random characters
     for (int i = 0; i < length; i++) {
         int key = rand() % charset_size;
         str[i] = charset[key];
-        //printf("Character %d: %c (key: %d)\n", i, str[i], key);
     }
-
-    str[length] = '\0'; // Null-terminate the string
+    str[length] = '\0'; 
 }
 
 void extractFromInit(char *initKey, uint32_t *posOne){
@@ -159,6 +156,9 @@ int encryptAes(char *input, char *key, char **output,AES_Mode mode){
             break;
         case CBC:
             cbcCypher(input,key,&*output,roundKeys);
+            break;
+        case CFB:
+            cfbCypher(input,key,&*output,roundKeys);    
             break;    
         default:
             break;
@@ -170,8 +170,6 @@ int encryptAes(char *input, char *key, char **output,AES_Mode mode){
 void decryptAes(char *input, char *key,char **output,AES_Mode mode, int cyphlen){
     uint32_t roundKeys[11][4]= {0};
     makeRoundKeys(key,roundKeys);
-    
-    printf("here in decryptAEs");
 
     switch (mode){
         case ECB:
@@ -179,6 +177,9 @@ void decryptAes(char *input, char *key,char **output,AES_Mode mode, int cyphlen)
             break;
         case CBC:
             cbcDeCypher(input,key,&*output,roundKeys,cyphlen);
+            break;
+        case CFB:
+            cfbDeCypher(input,key,&*output,roundKeys,cyphlen);    
             break;    
         default:
             break;
@@ -358,16 +359,26 @@ void tostr(uint32_t *state, char **output, bool lastround, int pos){
     for (size_t i = 0; i < 4; i++){
         shift = 24;
         for (size_t j = 0; j < 4; j++){
-            //printf("char is: %02x\n",(state[i] >> shift) & dig8);
              (*output)[pos] = (state[i] >> shift) & dig8;
             shift -= 8;
-            //printf("char is: %c\n",(*output)[pos]);
             pos++;
         }
     }
 
     if(lastround)
         (*output)[pos] = '\0';
+}
+
+void addCypher(char **output, bool lastround, int pos, char cypher){
+    int nchunk = lastround ? 2 : 1;
+
+    *output = realloc( *output , pos + nchunk);
+    if (*output == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+    }
+    (*output)[pos] = cypher;      
+    if(lastround)
+        (*output)[pos + 1] = '\0';
 }
 
 void takesubstr(char *dst, char *src, int start, int len){
@@ -385,9 +396,7 @@ void ecbCypher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
     char buffer[17] = {0};
     bool lastround = false;
 
-    printf("input len is : %ld\n", strlen(input));
     while(start < inputlen){
-       printf("size of buffer %ld",sizeof(buffer));
        memset(buffer, 0, sizeof(buffer));
        takesubstr(buffer,input,start,len);
        memset(state, 0, sizeof(state));
@@ -423,8 +432,6 @@ void ecbDeCypher(char *input, char *key, char **output, uint32_t roundKeys[][4],
     int start  = 0 , len = 16;
     char buffer[17] = {0};
     bool lastround = false;
-    
-    //printf("cypher len is : %ld\n", strlen(input));
 
     while(start < cypherlen){
        memset(buffer, 0, sizeof(buffer));
@@ -488,7 +495,6 @@ void cbcCypher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
     extractFromInit(key,iv);
     ivInit(iv);
     while(start < inputlen){
-       printf("size of buffer %ld",sizeof(buffer));
        memset(buffer, 0, sizeof(buffer));
        takesubstr(buffer,input,start,len);
        memset(state, 0, sizeof(state));
@@ -514,13 +520,13 @@ void cbcCypher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
                 for (size_t j = 0; j < 4; j++){
                     state[j] = byteSub(state[j]);
                 }
-            stateRowShift(state);
-            if(i != 10)
-                mixColumns(state);
-            for (size_t j = 0; j < 4; j++){
-                state[j] = state[j] ^ roundKeys[i][j];
-            }    
-        }
+                stateRowShift(state);
+                if(i != 10)
+                    mixColumns(state);
+                for (size_t j = 0; j < 4; j++){
+                    state[j] = state[j] ^ roundKeys[i][j];
+                }    
+            }
         }
         if((start + 16) >= inputlen)
             lastround = !lastround;
@@ -539,7 +545,6 @@ void cbcDeCypher(char *input, char *key, char **output, uint32_t roundKeys[][4],
     
     extractFromInit(key,iv);
     ivInit(iv);
-    printf("cypher len is : %ld\n", strlen(input));
 
     while(start < cypherlen){
        memset(buffer, 0, sizeof(buffer));
@@ -588,16 +593,13 @@ void ivInit(uint32_t *iv){
     int m = 0;
 
     for (size_t i = 0; i < 4; i++){
-        bin(iv[i]);
         m = countBits(iv[i]) % 7;
         for (size_t j = 0; (j + m) < 31; j++){
             swapBits(&iv[i], j, j + m);
-            bin(iv[i]);
+            //bin(iv[i]);
         }
         rotate_10(&iv[i]);
-        bin(iv[i]);
         rotate_16(&iv[i]);
-        bin(iv[i]);
     }
 }
 
@@ -644,3 +646,84 @@ void cpystates(uint32_t *state, uint32_t *priorstate){
         priorstate = state;
     }
 }
+
+void cfbCypher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
+    uint32_t iv[4] = {0}, f = 0xff000000, shift = 24;
+    int pos = 0, inputlen = strlen(input);
+    bool lastround = false;
+    char cypher, s;
+
+    extractFromInit(key,iv);
+    ivInit(iv);
+    while(pos < inputlen){
+       for (size_t i = 0; i < 11; i++) {
+            if(i == 0){
+                for (size_t j = 0; j < 4; j++){
+                    iv[j] = iv[j] ^ roundKeys[i][j];
+                }
+            }
+            else{
+                for (size_t j = 0; j < 4; j++){
+                    iv[j] = byteSub(iv[j]);
+                }
+                stateRowShift(iv);
+                if(i != 10)
+                    mixColumns(iv);
+                for (size_t j = 0; j < 4; j++){
+                    iv[j] = iv[j] ^ roundKeys[i][j];
+                }    
+            }
+        }
+        s = (iv[0] & f) >> shift;
+        cypher = input[pos] ^ s;
+        if(pos == inputlen -1)
+            lastround = !lastround;
+        addCypher(output, lastround, pos, cypher);
+        ivCfbInc(iv,cypher);
+        pos++;
+    }
+}
+
+void cfbDeCypher(char *input, char *key, char **output, uint32_t roundKeys[][4], int cypherlen){
+     uint32_t iv[4] = {0}, f = 0xff000000, shift = 24;
+    int pos = 0, inputlen = strlen(input);
+    bool lastround = false;
+    char text, s;
+
+    extractFromInit(key,iv);
+    ivInit(iv);
+    while(pos < inputlen){
+       for (size_t i = 0; i < 11; i++) {
+            if(i == 0){
+                for (size_t j = 0; j < 4; j++){
+                    iv[j] = iv[j] ^ roundKeys[i][j];
+                }
+            }
+            else{
+                for (size_t j = 0; j < 4; j++){
+                    iv[j] = byteSub(iv[j]);
+                }
+                stateRowShift(iv);
+                if(i != 10)
+                    mixColumns(iv);
+                for (size_t j = 0; j < 4; j++){
+                    iv[j] = iv[j] ^ roundKeys[i][j];
+                }    
+            }
+        }
+        s = (iv[0] & f) >> shift;
+        text = input[pos] ^ s;
+        if(pos == inputlen -1)
+            lastround = !lastround;
+        addCypher(output, lastround, pos, text);
+        ivCfbInc(iv,input[pos]);
+        pos++;
+    }
+}
+
+void ivCfbInc(uint32_t *iv, char cypher){ 
+    for (int i = 0; i < 3; ++i) {
+        iv[i] = (iv[i] << 8) | (iv[i + 1] >> 24); 
+    }
+    iv[3] = (iv[3] << 8) | (uint32_t)cypher;
+}    
