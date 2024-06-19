@@ -26,7 +26,7 @@ void f1(char *input, char *key, char **output,AES_Mode mode, int len){
 }
 
 int main(){
-    char *input = "This is a secret message.";
+    char *input = "almog doritos";
     char *cypher = NULL;
     char *text = NULL;
     char key[17];
@@ -35,8 +35,8 @@ int main(){
     
     len = encryptAes(input,key,&cypher,CFB);
     printf("len of cypher : %d\n",len);
-    //printf("len for phexsize : %d\n",len + (16 - (len % 16)));
-    //phexstrsize(cypher,len + (16 - (len % 16)));
+    // printf("len for phexsize : %d\n",len + (16 - (len % 16)));
+    // phexstrsize(cypher,len + (16 - (len % 16)));
     phexstrsize(cypher,len);
     decryptAes(cypher,key,&text,CFB,len);
     pstring(text);
@@ -56,6 +56,15 @@ int main(){
     // {
     //     bin(arr[i]);
     // }
+    
+    // char c = 'p';
+    // char x1 = '$';
+    // printf("value in asci: %d, char: %c\n",c,c);
+    // printf("value in asci: %d, char: %c\n",x1,x1);
+    // c = c ^ c;
+    // printf("value in asci: %d, char: %c\n",c,c);
+    // c = x1 ^ c;
+    // printf("value in asci: %d, char: %c\n",c,c);
     
     return 0;
 }

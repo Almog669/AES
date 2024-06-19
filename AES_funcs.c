@@ -675,6 +675,7 @@ void cfbCypher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
             }
         }
         s = (iv[0] & f) >> shift;
+        printf("s: %02x, pos: %d, input[pos]: %02x\n",(unsigned char)s,pos,(unsigned char)input[pos]);
         cypher = input[pos] ^ s;
         if(pos == inputlen -1)
             lastround = !lastround;
@@ -686,13 +687,13 @@ void cfbCypher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
 
 void cfbDeCypher(char *input, char *key, char **output, uint32_t roundKeys[][4], int cypherlen){
      uint32_t iv[4] = {0}, f = 0xff000000, shift = 24;
-    int pos = 0, inputlen = strlen(input);
+    int pos = 0;
     bool lastround = false;
     char text, s;
 
     extractFromInit(key,iv);
     ivInit(iv);
-    while(pos < inputlen){
+    while(pos < cypherlen){
        for (size_t i = 0; i < 11; i++) {
             if(i == 0){
                 for (size_t j = 0; j < 4; j++){
@@ -712,8 +713,9 @@ void cfbDeCypher(char *input, char *key, char **output, uint32_t roundKeys[][4],
             }
         }
         s = (iv[0] & f) >> shift;
+        printf("s: %02x, pos: %d, input[pos]: %02x\n",(unsigned char)s,pos,(unsigned char)input[pos]);
         text = input[pos] ^ s;
-        if(pos == inputlen -1)
+        if(pos == cypherlen -1)
             lastround = !lastround;
         addCypher(output, lastround, pos, text);
         ivCfbInc(iv,input[pos]);
