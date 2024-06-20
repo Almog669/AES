@@ -26,45 +26,21 @@ void f1(char *input, char *key, char **output,AES_Mode mode, int len){
 }
 
 int main(){
-    char *input = "almog doritos";
+    char *input = "this is an encrypted message ! try to reverse";
     char *cypher = NULL;
     char *text = NULL;
     char key[17];
     int len;
     generateRandomKey(key, KeySize);
     
-    len = encryptAes(input,key,&cypher,CFB);
-    printf("len of cypher : %d\n",len);
-    // printf("len for phexsize : %d\n",len + (16 - (len % 16)));
-    // phexstrsize(cypher,len + (16 - (len % 16)));
-    phexstrsize(cypher,len);
-    decryptAes(cypher,key,&text,CFB,len);
+    len = encryptAes(input,key,&cypher,OFB);
+    //printf("len of cypher : %d\n",len);
+    //printf("len for phexsize : %d\n",len + (16 - (len % 16)));
+    phexstrsize(cypher,len + (16 - (len % 16)));
+    //phexstrsize(cypher,len);
+    decryptAes(cypher,key,&text,OFB,len);
     pstring(text);
     freebuffs(&cypher,&text);
-    // uint32_t arr[4] = {0};
-    // arr[0] = 7;
-    // arr[1] = 324453333;
-    // arr[2] = 7;
-    // arr[3] = 7;
-    // for (size_t i = 0; i < 4; i++)
-    // {
-    //     bin(arr[i]);
-    // }
-    // ivCfbInc(arr,'a');
-    // printf("\n");
-    // for (size_t i = 0; i < 4; i++)
-    // {
-    //     bin(arr[i]);
-    // }
-    
-    // char c = 'p';
-    // char x1 = '$';
-    // printf("value in asci: %d, char: %c\n",c,c);
-    // printf("value in asci: %d, char: %c\n",x1,x1);
-    // c = c ^ c;
-    // printf("value in asci: %d, char: %c\n",c,c);
-    // c = x1 ^ c;
-    // printf("value in asci: %d, char: %c\n",c,c);
     
     return 0;
 }

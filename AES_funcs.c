@@ -159,7 +159,10 @@ int encryptAes(char *input, char *key, char **output,AES_Mode mode){
             break;
         case CFB:
             cfbCypher(input,key,&*output,roundKeys);    
-            break;    
+            break;
+        case OFB:
+            ofbCypher(input,key,&*output,roundKeys);    
+            break;       
         default:
             break;
     }
@@ -180,7 +183,10 @@ void decryptAes(char *input, char *key,char **output,AES_Mode mode, int cyphlen)
             break;
         case CFB:
             cfbDeCypher(input,key,&*output,roundKeys,cyphlen);    
-            break;    
+            break;
+        case OFB:
+            ofbDeCypher(input,key,&*output,roundKeys,cyphlen);    
+            break;            
         default:
             break;
     }
@@ -675,7 +681,7 @@ void cfbCypher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
             }
         }
         s = (iv[0] & f) >> shift;
-        printf("s: %02x, pos: %d, input[pos]: %02x\n",(unsigned char)s,pos,(unsigned char)input[pos]);
+        //printf("s: %02x, pos: %d, input[pos]: %02x\n",(unsigned char)s,pos,(unsigned char)input[pos]);
         cypher = input[pos] ^ s;
         if(pos == inputlen -1)
             lastround = !lastround;
@@ -728,4 +734,93 @@ void ivCfbInc(uint32_t *iv, char cypher){
         iv[i] = (iv[i] << 8) | (iv[i + 1] >> 24); 
     }
     iv[3] = (iv[3] << 8) | (uint32_t)cypher;
-}    
+}
+
+void ofbCypher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
+    uint32_t once[4]= {0},state[4];
+    int start = 0, len = 16, inputlen = strlen(input);
+    bool lastround = false;
+    char buffer[17];
+    fillWithOnes(once);
+
+    while(start < inputlen){
+       for (size_t i = 0; i < 11; i++) {
+            if(i == 0){
+                for (size_t j = 0; j < 4; j++){
+                    once[j] = once[j] ^ roundKeys[i][j];
+                }
+            }
+            else{
+                for (size_t j = 0; j < 4; j++){
+                    once[j] = byteSub(once[j]);
+                }
+                stateRowShift(once);
+                if(i != 10)
+                    mixColumns(once);
+                for(size_t j = 0; j < 4; j++){
+                    once[j] = once[j] ^ roundKeys[i][j];
+                }    
+            }
+        }
+        memset(buffer, 0, sizeof(buffer));
+        takesubstr(buffer,input,start,len);
+        memset(state, 0, sizeof(state));
+        extractFromInit(buffer, state);
+        xWithPt(state,once);
+        if((start + 16) >= inputlen)
+            lastround = !lastround;
+       tostr(state,output,lastround,start);
+       start += 16;
+    }
+}
+
+void ofbDeCypher(char *input, char *key, char **output, uint32_t roundKeys[][4], int cypherlen){
+    uint32_t once[4]= {0},state[4];
+    int start = 0, len = 16;
+    bool lastround = false;
+    char buffer[17];
+
+    fillWithOnes(once);
+
+    while(start < cypherlen){
+       for (size_t i = 0; i < 11; i++) {
+            if(i == 0){
+                for (size_t j = 0; j < 4; j++){
+                    once[j] = once[j] ^ roundKeys[i][j];
+                }
+            }
+            else{
+                for (size_t j = 0; j < 4; j++){
+                    once[j] = byteSub(once[j]);
+                }
+                stateRowShift(once);
+                if(i != 10)
+                    mixColumns(once);
+                for(size_t j = 0; j < 4; j++){
+                    once[j] = once[j] ^ roundKeys[i][j];
+                }    
+            }
+        }
+        memset(buffer, 0, sizeof(buffer));
+        takesubstr(buffer,input,start,len);
+        memset(state, 0, sizeof(state));
+        extractFromInit(buffer, state);
+        xWithPt(state,once);
+        if((start + 16) >= cypherlen)
+            lastround = !lastround;
+       tostr(state,output,lastround,start);
+       start += 16;
+    }
+}
+
+void fillWithOnes(uint32_t *array){
+    for (size_t i = 0; i < 4; i++) {
+        array[i] = 0xFFFFFFFF;
+    }
+}
+
+void xWithPt(uint32_t *state, uint32_t *once){
+    for (size_t i = 0; i < 4; i++) {
+        state[i] = state[i] ^ once[i];
+    }
+}

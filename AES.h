@@ -7,10 +7,11 @@
 
 #define KeySize 16
 typedef enum {
-    ECB,  // Electronic Codebook Mode
-    CBC,  // Cipher Block Chaining Mode
-    CFB,  // cypher feedback Mode
-    GCM   // Galois/Counter Mode
+    ECB,  // cipher Electronic Codebook Mode
+    CBC,  // cipher Block Chaining Mode
+    CFB,  // cipher feedback Mode
+    OFB,  // cipher output feedback Mode
+    GCM   // cipher Galois/Counter Mode
 } AES_Mode;
 
 
@@ -40,6 +41,9 @@ void cpystates(uint32_t *state, uint32_t *priorstate);
 void ivInit(uint32_t *iv);
 void tostr(uint32_t *state, char **output, bool lastround, int pos);
 void addCypher(char **output, bool lastround, int pos, char cypher);
+void fillWithOnes(uint32_t *array);
+void xWithPt(uint32_t *state, uint32_t *once);
+
 
 /*Modes of operation functions*/
 void ecbCypher(char *input, char *key, char **output, uint32_t roundKeys[][4]);
@@ -48,6 +52,8 @@ void cbcCypher(char *input, char *key, char **output, uint32_t roundKeys[][4]);
 void cbcDeCypher(char *input, char *key, char **output, uint32_t roundKeys[][4], int cypherlen);
 void cfbCypher(char *input, char *key, char **output, uint32_t roundKeys[][4]);
 void cfbDeCypher(char *input, char *key, char **output, uint32_t roundKeys[][4], int cypherlen);
+void ofbCypher(char *input, char *key, char **output, uint32_t roundKeys[][4]);
+void ofbDeCypher(char *input, char *key, char **output, uint32_t roundKeys[][4], int cypherlen);
 void ivCfbInc(uint32_t *iv, char cypher);
 
 /*Helper log Functions*/
