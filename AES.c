@@ -17,30 +17,21 @@ void checks(char **s){
     //free(s);
 }
 
-int f(char *input, char *key, char **output,AES_Mode mode){
-    return encryptAes(input,key,&*output,mode);
-}
-
-void f1(char *input, char *key, char **output,AES_Mode mode, int len){
-    decryptAes(input,key,&*output,mode,len);
-}
-
 int main(){
-    char *input = "this is an encrypted message ! try to reverse";
-    char *cypher = NULL;
+    char *input = "this is an encr";
+    char *cipher = NULL;
     char *text = NULL;
     char key[17];
-    int len;
+    uint32_t *len_Tag;
     generateRandomKey(key, KeySize);
-    
-    len = encryptAes(input,key,&cypher,OFB);
-    //printf("len of cypher : %d\n",len);
+    len_Tag = encryptAes(input,key,&cipher,GCM);
+    //printf("len of cipher : %d\n",len);
     //printf("len for phexsize : %d\n",len + (16 - (len % 16)));
-    phexstrsize(cypher,len + (16 - (len % 16)));
-    //phexstrsize(cypher,len);
-    decryptAes(cypher,key,&text,OFB,len);
+    phexstrsize(cipher,len_Tag[0] + (16 - (len_Tag[0] % 16)));
+    //phexstrsize(cipher,len_Tag[0]);
+    decryptAes(cipher,key,&text,GCM,len_Tag);
     pstring(text);
-    freebuffs(&cypher,&text);
+    freebuffs(&cipher,&text);
     
     return 0;
 }
