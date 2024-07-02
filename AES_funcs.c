@@ -157,16 +157,16 @@ uint32_t *encryptAes(char *input, char *key, char **output,AES_Mode mode){
 
     switch (mode){
         case ECB:
-            ecbCipher(input, key, &*output, roundKeys);
+            ecbCipher(input, &*output, roundKeys);
             break;
         case CBC:
-            cbccipher(input, key,&*output,roundKeys);
+            cbccipher(input, key, &*output, roundKeys);
             break;
         case CFB:
             cfbcipher(input, key, &*output, roundKeys);    
             break;
         case OFB:
-            ofbcipher(input, key, &*output, roundKeys);    
+            ofbcipher(input, &*output, roundKeys);    
             break;
         case GCM:
             gcmCipher(input, key, &*output, roundKeys, retLenTag);    
@@ -184,23 +184,25 @@ void decryptAes(char *input, char *key,char **output,AES_Mode mode, uint32_t *Le
 
     switch (mode){
         case ECB:
-            ecbDecipher(input,key,&*output,roundKeys,LenTag[0]);
+            ecbDecipher(input, &*output, roundKeys, LenTag[0]);
             break;
         case CBC:
-            cbcDecipher(input,key,&*output,roundKeys,LenTag[0]);
+            cbcDecipher(input, key, &*output, roundKeys, LenTag[0]);
             break;
         case CFB:
-            cfbDecipher(input,key,&*output,roundKeys,LenTag[0]);    
+            cfbDecipher(input, key, &*output, roundKeys, LenTag[0]);    
             break;
         case OFB:
-            ofbDecipher(input,key,&*output,roundKeys,LenTag[0]);        
+            ofbDecipher(input, &*output, roundKeys, LenTag[0]);        
             break;
         case GCM:
-            gcmDecipher(input,key,&*output,roundKeys,LenTag);        
+            gcmDecipher(input, key, &*output, roundKeys, LenTag);        
             break;                
         default:
             break;
     }
+
+    free(LenTag);
 }
 
 void proundkeys(uint32_t keyarr[][4]){
@@ -407,7 +409,7 @@ void takesubstr(char *dst, char *src, int start, int len){
     }
 }
 
-void ecbCipher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
+void ecbCipher(char *input, char **output, uint32_t roundKeys[][4]){
     uint32_t state[4] = {0};
     int start  = 0, len = 16,inputlen = strlen(input);
     char buffer[17] = {0};
@@ -444,7 +446,7 @@ void ecbCipher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
     }
 }
 
-void ecbDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4], uint32_t cipherlen){
+void ecbDecipher(char *input, char **output, uint32_t roundKeys[][4], uint32_t cipherlen){
     uint32_t state[4] = {1},start = 0;
     int len = 16;
     char buffer[17] = {0};
@@ -472,7 +474,7 @@ void ecbDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4],
                 for (size_t j = 0; j < 4; j++){
                     state[j] = state[j] ^ roundKeys[i][j];
                 }
-        }
+            }
         }
        if((start + 16) >= cipherlen)
             lastround = !lastround;
@@ -564,15 +566,17 @@ void cbcDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4],
     ivInit(iv);
 
     while(start < cipherlen){
-       memset(buffer, 0, sizeof(buffer));
-       takesubstr(buffer,input,start,len);
-       memset(state, 0, sizeof(state));
-       extractFromInit(buffer, state);
-       if(start != 0)
-            cpystates(state, priorstate);
-       for(int i = 10; i >= 0; i--){
+        memset(buffer, 0, sizeof(buffer));
+        takesubstr(buffer,input,start,len);
+        memset(state, 0, sizeof(state));
+        extractFromInit(buffer, state);
+        if(start != 0)
+            cpystates(priorstate, iv);
+        cpystates(state, priorstate); 
+
+        for(int i = 10; i >= 0; i--){
             if( i != 0){
-               for (size_t j = 0; j < 4; j++){
+                for (size_t j = 0; j < 4; j++){
                     state[j] = state[j] ^ roundKeys[i][j];
                 }
                 if (i != 10) 
@@ -583,27 +587,17 @@ void cbcDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4],
                 }
             }
             else{
-                for (size_t j = 0; j < 4; j++){
+                for(size_t j = 0; j < 4; j++){
                     state[j] = state[j] ^ roundKeys[i][j];
                 }
+            }
         }
-        }
-       if((start + 16) >= cipherlen)
+        if((start + 16) >= cipherlen)
             lastround = !lastround;
-       if(start == 0){
-           for (size_t i = 0; i < 4; i++){
-                state[i] ^= iv[i];
-           }
-       }
-       else{
-           for (size_t i = 0; i < 4; i++){
-                state[i] ^= priorstate[i];
-           }
-       }     
-       tostr(state,output,lastround,start);
-       start += 16;
+        xStates(state,iv);     
+        tostr(state,output,lastround,start);
+        start += 16;
     }
-    
 }
 
 void ivInit(uint32_t *iv){
@@ -748,7 +742,7 @@ void ivCfbInc(uint32_t *iv, char cipher){
     iv[3] = (iv[3] << 8) | (uint32_t)cipher;
 }
 
-void ofbcipher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
+void ofbcipher(char *input, char **output, uint32_t roundKeys[][4]){
     uint32_t once[4]= {0},state[4];
     int start = 0, len = 16, inputlen = strlen(input);
     bool lastround = false;
@@ -756,7 +750,7 @@ void ofbcipher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
     fillWithOnes(once);
 
     while(start < inputlen){
-       for (size_t i = 0; i < 11; i++) {
+        for (size_t i = 0; i < 11; i++) {
             if(i == 0){
                 for (size_t j = 0; j < 4; j++){
                     once[j] = once[j] ^ roundKeys[i][j];
@@ -778,7 +772,7 @@ void ofbcipher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
         takesubstr(buffer,input,start,len);
         memset(state, 0, sizeof(state));
         extractFromInit(buffer, state);
-        xWithPt(state,once);
+        xStates(state,once);
         if((start + 16) >= inputlen)
             lastround = !lastround;
        tostr(state,output,lastround,start);
@@ -786,7 +780,7 @@ void ofbcipher(char *input, char *key, char **output, uint32_t roundKeys[][4]){
     }
 }
 
-void ofbDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4], uint32_t cipherlen){
+void ofbDecipher(char *input, char **output, uint32_t roundKeys[][4], uint32_t cipherlen){
     uint32_t once[4]= {0}, state[4], start = 0;
     int len = 16;
     bool lastround = false;
@@ -817,7 +811,7 @@ void ofbDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4],
         takesubstr(buffer,input,start,len);
         memset(state, 0, sizeof(state));
         extractFromInit(buffer, state);
-        xWithPt(state,once);
+        xStates(state,once);
         if((start + 16) >= cipherlen)
             lastround = !lastround;
        tostr(state,output,lastround,start);
@@ -831,15 +825,16 @@ void fillWithOnes(uint32_t *array){
     }
 }
 
-void xWithPt(uint32_t *state, uint32_t *once){
+void xStates(uint32_t *state1, uint32_t *state2){
     for (size_t i = 0; i < 4; i++) {
-        state[i] = state[i] ^ once[i];
+        state1[i] = state1[i] ^ state2[i];
     }
 }
 
 void gcmCipher(char *input, char *key, char **output, uint32_t roundKeys[][4], uint32_t *lenTag){
     uint32_t H[4] = {0}, ivCounter[4] = {0},lenstrs[4]= {0}, state[4], ivEncrpyted[4] = {0},ivzero[4] = {0};
-    int start = 0, len = 16, inputlen = strlen(input),headStart = 0;
+    uint64_t headStart = 0;
+    int start = 0, len = 16, inputlen = strlen(input);
     bool lastround = false;
     char buffer[17],*header = "This is the hard coded message header";
 
@@ -862,7 +857,7 @@ void gcmCipher(char *input, char *key, char **output, uint32_t roundKeys[][4], u
         takesubstr(buffer, input, start, len);
         memset(state, 0, sizeof(state));
         extractFromInit(buffer, state);
-        xWithPt(state, ivEncrpyted);
+        xStates(state, ivEncrpyted);
         if((start + 16) >= inputlen)
             lastround = !lastround;
         tostr(state, output, lastround, start);
@@ -878,7 +873,8 @@ void gcmCipher(char *input, char *key, char **output, uint32_t roundKeys[][4], u
 
 void gcmDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4], uint32_t *lenTag){
     uint32_t H[4] = {0}, ivCounter[4] = {0},lenstrs[4]= {0}, state[4], ivEncrpyted[4] = {0},ivzero[4] = {0};
-    int start = 0, len = 16, cipherlen = lenTag[0],headStart = 0;
+    uint64_t headStart = 0;
+    int start = 0, len = 16, cipherlen = lenTag[0];
     bool lastround = false;
     char buffer[17],*header = "This is the hard coded message header";
 
@@ -902,7 +898,7 @@ void gcmDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4],
         memset(state, 0, sizeof(state));
         extractFromInit(buffer, state);
         gcmMultiply(state, H, H);
-        xWithPt(state, ivEncrpyted);
+        xStates(state, ivEncrpyted);
         if((start + 16) >= cipherlen)
             lastround = !lastround;
         tostr(state, output, lastround, start);
@@ -914,8 +910,9 @@ void gcmDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4],
     gcmMultiply(lenstrs, H, H);
     gcmMultiply(ivzero, H, H);
     if(checkTagSig(H,lenTag))
-        printf("Warning : Tag was unmatched ! \n");
-    free(lenTag);    
+        logRed("Warning : Tag was unmatched !\n");
+    else
+        logGreen("Successfuly Authenticated Tag\n");        
 }
 
 void gcmIvInit(uint32_t *ivCounter, char *initKey){
@@ -1043,4 +1040,14 @@ bool checkTagSig(uint32_t *H,uint32_t *LenTag){
 void perror(const char *message){
     fprintf(stderr, "%s\n", message); 
     exit(EXIT_FAILURE);
+}
+
+void logRed(const char *message){
+    printf("\033[0;31m%s", message);
+    printf("\033[0;37m");
+}
+
+void logGreen(const char *message){
+    printf("\033[0;32m%s", message);
+    printf("\033[0;37m");
 }

@@ -47,8 +47,9 @@ void ivInit(uint32_t *iv);
 void tostr(uint32_t *state, char **output, bool lastround, int pos);
 void addcipher(char **output, bool lastround, int pos, char cipher);
 void fillWithOnes(uint32_t *array);
-void xWithPt(uint32_t *state, uint32_t *once);
+void xStates(uint32_t *state1, uint32_t *state2);
 void ivCfbInc(uint32_t *iv, char cipher);
+void aesBasic(uint32_t *toencrypt, uint32_t *res, uint32_t roundKeys[][4]);
 
 /*GCM functions*/
 void gcmIvInit(uint32_t *ivCounter, char *initKey);
@@ -58,17 +59,23 @@ void gcmAddToTag(uint32_t *H, uint32_t *LenTAg);
 bool checkTagSig(uint32_t *H,uint32_t *LenTag);
 
 /*Modes of operation functions*/
-void ecbCipher(char *input, char *key, char **output, uint32_t roundKeys[][4]);
-void ecbDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4], uint32_t cipherlen);
+void ecbCipher(char *input, char **output, uint32_t roundKeys[][4]);
+void ecbDecipher(char *input, char **output, uint32_t roundKeys[][4], uint32_t cipherlen);
 void cbccipher(char *input, char *key, char **output, uint32_t roundKeys[][4]);
 void cbcDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4], uint32_t cipherlen);
 void cfbcipher(char *input, char *key, char **output, uint32_t roundKeys[][4]);
 void cfbDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4], uint32_t cipherlen);
-void ofbcipher(char *input, char *key, char **output, uint32_t roundKeys[][4]);
-void ofbDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4], uint32_t cipherlen);
+void ofbcipher(char *input, char **output, uint32_t roundKeys[][4]);
+void ofbDecipher(char *input, char **output, uint32_t roundKeys[][4], uint32_t cipherlen);
 void gcmCipher(char *input, char *key, char **output, uint32_t roundKeys[][4], uint32_t *lenTag);
 void gcmDecipher(char *input, char *key, char **output, uint32_t roundKeys[][4], uint32_t *lenTag);
-void aesBasic(uint32_t *toencrypt, uint32_t *res, uint32_t roundKeys[][4]);
+/*-----------------------------------------------------------------------*/
+/*----------!---------------NOTICE--------------------!------------------*/
+    /*Header will not be encrypted, only GCM multiplied and added the chained
+    authenticated tag as Additional data Header that stayes the same every
+    call for the purpose of using this code modify the dummy header to take
+    as to suit your needs.*/
+/*----------!--------------------!--------------------!------------------*/
 
 /*Helper log Functions*/
 void proundkeys(uint32_t keyarr[][4]);
@@ -79,14 +86,10 @@ void takesubstr(char *dst, char *src, int start, int len);
 void phexstrsize(char *str, int size);
 void bin(unsigned n);
 void perror(const char *message);
+void logRed(const char *message);
+void logGreen(const char *message);
 
 /*free Dynmaic Data*/
 void freebuffs(char **buf1, char **buf2);
-/*-----------------------------------------------------------------------*/
-/*----------!---------------NOTICE--------------------!------------------*/
-    /*Header will not be encrypted, only GCM multiplied and added the chained
-    authenticated tag as Additional data Header that stayes the same every
-    call for the purpose of using this code modify the dummy header to take
-    as to suit your needs.*/
-/*----------!--------------------!--------------------!------------------*/
+
 #endif

@@ -18,7 +18,7 @@ void checks(char **s){
 }
 
 int main(){
-    char *input = "this is an encr";
+    char *input = "this is an encrypted text try to reverse !";
     char *cipher = NULL;
     char *text = NULL;
     char key[17];
@@ -32,7 +32,6 @@ int main(){
     decryptAes(cipher,key,&text,GCM,len_Tag);
     pstring(text);
     freebuffs(&cipher,&text);
-    
     return 0;
 }
 
